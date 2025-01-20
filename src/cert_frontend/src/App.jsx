@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { QRCodeDisplay } from './QRCodeDisplay';
 
-const CertificateGenerator = () => {
+const App = () => {
   const [certificates, setCertificates] = useState([]);
   const [notification, setNotification] = useState(null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     commonName: '',
     organization: '',
@@ -95,6 +97,51 @@ const CertificateGenerator = () => {
     showNotification('Certificate exported successfully');
   };
 
+  const exportAllCertificates = () => {
+    const certificatesData = JSON.stringify(certificates, null, 2);
+    const blob = new Blob([certificatesData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'all-certificates.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showNotification('All certificates exported successfully');
+  };
+
+  const importCertificates = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedCertificates = JSON.parse(e.target.result);
+        const certsToImport = Array.isArray(importedCertificates) 
+          ? importedCertificates 
+          : [importedCertificates];
+        
+        certsToImport.forEach(cert => {
+          cert.validFrom = new Date(cert.validFrom);
+          cert.validTo = new Date(cert.validTo);
+          cert.created = new Date(cert.created);
+          if (cert.revokedAt) {
+            cert.revokedAt = new Date(cert.revokedAt);
+          }
+        });
+
+        setCertificates(prev => [...prev, ...certsToImport]);
+        showNotification(`Successfully imported ${certsToImport.length} certificate(s)`);
+      } catch (error) {
+        showNotification('Error importing certificates: Invalid file format', 'error');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = null; // Reset file input
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -126,10 +173,11 @@ const CertificateGenerator = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+          {/* Certificate Generation Form */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Generate New Certificate</h2>
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Common Name*</label>
                   <input
@@ -154,7 +202,7 @@ const CertificateGenerator = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Organizational Unit</label>
                   <input
@@ -179,7 +227,7 @@ const CertificateGenerator = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
                   <input
@@ -215,7 +263,7 @@ const CertificateGenerator = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Validity Period</label>
                   <select
@@ -258,10 +306,35 @@ const CertificateGenerator = () => {
             </div>
           </div>
 
+          {/* Certificates List */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">
-              Generated Certificates ({certificates.length})
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Generated Certificates ({certificates.length})
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={exportAllCertificates}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                  disabled={certificates.length === 0}
+                >
+                  Export All
+                </button>
+                <input
+                  type="file"
+                  accept=".json"
+                  ref={fileInputRef}
+                  onChange={importCertificates}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                >
+                  Import
+                </button>
+              </div>
+            </div>
             
             <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
               {certificates.length === 0 ? (
@@ -277,7 +350,7 @@ const CertificateGenerator = () => {
                       cert.status === 'revoked' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-4">
+                   <div className="flex justify-between items-start mb-4">
                       <h3 className="font-semibold text-lg text-gray-900">{cert.commonName}</h3>
                       <div className="flex gap-2">
                         <button
@@ -327,6 +400,19 @@ const CertificateGenerator = () => {
                       <div className="text-gray-600">Key Type/Size:</div>
                       <div className="text-gray-900">{cert.keyType} {cert.keySize} bits</div>
                     </div>
+
+                    <div className="mt-4 flex justify-center">
+                      <QRCodeDisplay 
+                        data={{
+                          serialNumber: cert.serialNumber,
+                          commonName: cert.commonName,
+                          organization: cert.organization,
+                          validFrom: cert.validFrom.toLocaleString(),
+                          validTo: cert.validTo.toLocaleString(),
+                          status: cert.status
+                        }}
+                      />
+                    </div>
                   </div>
                 ))
               )}
@@ -338,4 +424,4 @@ const CertificateGenerator = () => {
   );
 };
 
-export default CertificateGenerator;
+export default App;
