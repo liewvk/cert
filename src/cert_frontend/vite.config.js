@@ -1,44 +1,50 @@
-import { fileURLToPath, URL } from 'url';
-import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import environment from 'vite-plugin-environment';
-import dotenv from 'dotenv';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
-dotenv.config({ path: '../../.env' });
+// Get the DFX network from environment variable or default to 'local'
+const network = process.env.DFX_NETWORK || 'local';
+
+// Get canister IDs from environment variables
+const canisterIds = {
+  cert_backend: process.env.CANISTER_ID_CERT_BACKEND,
+  cert_frontend: process.env.CANISTER_ID_CERT_FRONTEND,
+};
+
+// Host configuration
+const LOCAL_HOST = "http://localhost:8000";
+const IC_HOST = "https://ic0.app";
+const host = network === "ic" ? IC_HOST : LOCAL_HOST;
 
 export default defineConfig({
-  build: {
-    emptyOutDir: true,
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: "globalThis",
-      },
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
     proxy: {
-      "/api": {
-        target: "http://127.0.0.1:4943",
+      '/api': {
+        target: host,
         changeOrigin: true,
       },
     },
   },
-  plugins: [
-    react(),
-    environment("all", { prefix: "CANISTER_" }),
-    environment("all", { prefix: "DFX_" }),
-  ],
-  resolve: {
-    alias: [
-      {
-        find: "declarations",
-        replacement: fileURLToPath(
-          new URL("../declarations", import.meta.url)
-        ),
-      },
-    ],
-    dedupe: ['@dfinity/agent'],
+  define: {
+    'process.env.DFX_NETWORK': JSON.stringify(process.env.DFX_NETWORK),
+    'process.env.CERT_BACKEND_CANISTER_ID': JSON.stringify(canisterIds.cert_backend),
+    global: 'window',
+  },
+  build: {
+    target: 'es2020',
+    outDir: 'dist',
+    emptyOutDir: true,
+    sourcemap: true,
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2020',
+    },
   },
 });

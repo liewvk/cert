@@ -8,11 +8,13 @@
       "dependencies": [
         "cert_backend"
       ],
+      "frontend": {
+        "entrypoint": "src/cert_frontend/src/main.jsx"
+      },
       "source": [
         "src/cert_frontend/dist"
       ],
-      "type": "assets",
-      "workspace": "cert_frontend"
+      "type": "assets"
     }
   },
   "defaults": {
@@ -21,6 +23,5 @@
       "packtool": ""
     }
   },
-  "output_env_file": ".env",
   "version": 1
 }

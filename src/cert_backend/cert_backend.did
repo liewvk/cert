@@ -1,0 +1,13 @@
+type CertificateData = record {
+    id: text;
+    recipientName: text;
+    courseName: text;
+    issueDate: int;
+    issuerName: text;
+    description: text;
+};
+
+service : {
+    hello: () -> (text) query;
+    createCertificate: (text, text, text, text) -> (text);
+};
